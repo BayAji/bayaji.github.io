@@ -7,6 +7,7 @@
  * @license MIT License
  * @options frequency, callback
  */
+ btn.addEventListener("click", function() { DeviceMotionEvent.requestPermission(); });
  (function (root, factory) {
     if (typeof define === 'function' && define.amd) {
             // AMD. Register as an anonymous module.
