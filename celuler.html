@@ -1,86 +1,272 @@
-<div class="columns">
-    <div class="column">
-      <button class="btn-file">
-        Choose some files to read<br>(File API) <input type="file" onchange="readFiles(this.files)" multiple>
-      </button>
-      
-      <p>Number of selected files: <b id="count">N/A</b></p>
-    </div>
-    <div class="column">
-      <button class="btn-file" onclick="writeFile()">
-        Choose file to create or overwrite<br>(Native File System API)
-      </button>
-    </div>
-  </div>
-
-  <style>
-      .btn-file {
-    position: relative;
-    overflow: hidden;
-    margin: 10px;
-}
-.btn-file input[type=file] {
-    position: absolute;
-    top: 0;
-    right: 0;
-    min-width: 100%;
-    min-height: 100%;
-    opacity: 0;
-    outline: none;
-    background: #fff;
-    cursor: inherit;
-    display: block;
-  </style>
-
-
-
-
+<div id="log"></div>
 <script>
-    function getReadFile(reader, i) {
-  return function () {
-    var li = document.querySelector('[data-idx="' + i + '"]');
+  /**
+ * Network Information API
+ *
+ * The Network Information API enables web applications to access information
+ * about the network connection in use by the device.
+ *
+ * https://caniuse.com/#feat=netinfo
+ * https://developer.mozilla.org/en-US/docs/Web/API/Network_Information_API
+ * https://developer.mozilla.org/en-US/docs/Web/API/Navigator/connection
+ * http://wicg.github.io/netinfo/
+ * http://wicg.github.io/netinfo/#underlying-connection-technology
+ */
+var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection || false,
+    type = connection.type || false,
+    effectiveType = connection.effectiveType || false,
+    downlink = connection.downlink || false,
+    bandwidth = connection.bandwidth || false,
+    downloadMax = connection.downloadMax || false,
+    saveData = connection.saveData || false,
+    metered = connection.metered || false,
+    rtt = connection.rtt || false;
 
-    li.innerHTML += 'File starts with "' + reader.result.substr(0, 25) + '"';
-  }
+function text(str) {
+    var p = document.createElement("p");
+    p.appendChild(document.createTextNode(str));
+
+    document.body.insertBefore(p, document.getElementById("log"));
 }
 
-function readFiles(files) {
-  document.getElementById('count').innerHTML = files.length;
+/**
+ * Handling changes to the underlying connection
+ *
+ * When the properties of the underlying connection technology change,
+ * due to a switch to a different connection type or effective connection type,
+ * change in upper bound on the downlink speed of the first network hop, change
+ * in effective downlink or rtt estimates, or change in saveData preference,
+ * the user agent runs the following steps to update the connection values.
+ *
+ * @param {object<NetworkInformation>} conn - Global navigator.connection object
+ *
+ * @see <http://wicg.github.io/netinfo/#dfn-steps-to-update-the-connection-values>
+ */
+function onConnectionChangeHandler(conn) {
+    // 1. Let new-type be the connection type that represents the underlying connection technology.
 
-  var target = document.getElementById('target');
-  target.innerHTML = '';
+    /**
+     * The ConnectionType enum represents the connection types and
+     * the underlying connection technology that the user agent is using.
+     *
+     * http://wicg.github.io/netinfo/#connection-types
+     * http://wicg.github.io/netinfo/#-dfn-connectiontype-dfn-enum
+     * https://www.davidbcalhoun.com/2010/using-navigator-connection-android/
+     *
+     * Supported in:
+     *   - Chrome for Android 64+
+     *   - Firefox Android 57+
+     *   - Microsoft Edge for Android 1+
+     *   - Opera Mobile 37+
+     *   - Samsung Internet 5+ (full)
+     *   - Samsung Internet 4 (non-standard)
+     */
+    if (conn.type) {
+        /**
+         * enum ConnectionType {
+         *   "bluetooth",
+         *   "cellular",
+         *   "ethernet",
+         *   "mixed",
+         *   "none",
+         *   "other",
+         *   "unknown",
+         *   "wifi",
+         *   "wimax"
+         * };
+         */
+        if (type !== conn.type) {
+            text("Connection type changed from " + type + " to " + conn.type);
+            type = conn.type;
+        } else {
+            text("Connection type: " + type);
+        }
+    }
 
-  for (var i = 0; i < files.length; ++i) {
-    var item = document.createElement('li');
-    item.setAttribute('data-idx', i);
-    var file = files[i];
+    // 2. Let new-effective-type be the effective connection type determined by current downlink and rtt values.
 
-    var reader = new FileReader();
-    reader.addEventListener('load', getReadFile(reader, i));
-    reader.readAsText(file);
+    /**
+     * The EffectiveConnectionType enum represents the effective connection types (ECT),
+     * determined using a combination of recently observed rtt and downlink values.
+     *
+     * http://wicg.github.io/netinfo/#effective-connection-types
+     * http://wicg.github.io/netinfo/#-dfn-effectiveconnectiontype-dfn-enum
+     *
+     * Supported in:
+     *   - Chrome (Desktop) 63+
+     *   - Chrome for Android 64+
+     *   - Microsoft Edge for Android 1+
+     *   - Opera (Desktop) 48+
+     */
+    if (conn.effectiveType) {
+        /**
+         * enum EffectiveConnectionType {
+         *   "2g",
+         *   "3g",
+         *   "4g",
+         *   "slow-2g"
+         * };
+         */
+        if (effectiveType !== conn.effectiveType) {
+            text("Connection effective type changed from " + effectiveType + " to " + conn.effectiveType);
+            effectiveType = conn.effectiveType;
+        } else {
+            text("Connection effective type: " + effectiveType);
+        }
+    }
 
-    item.innerHTML = '' + file.name + ', ' + file.type + ', ' + file.size + ' bytes, last modified ' + file.lastModifiedDate + '';
-    target.appendChild(item);
-  };
+    // 3. Let new-saveData be the current saveData preference.
+
+    /**
+     * The saveData attribute returns true if the user's connection is subject
+     * to a limitation from his Internet Service Provider (ISP) strong enough
+     * to request web applications to be careful with the bandwidth usage and
+     * false otherwise.
+     *
+     * http://wicg.github.io/netinfo/#-dfn-savedata-dfn-attribute
+     *
+     * Supported in:
+     *   - Chrome for Android 64+
+     */
+    if (conn.saveData) {
+        if (saveData !== conn.saveData) {
+            text("Connection Data-Saver mode changed from " + saveData + " to " + conn.saveData);
+            saveData = conn.saveData;
+        } else {
+            text("Connection Data-Saver mode: " + saveData);
+        }
+    }
+
+    /**
+     * The metered attribute, when getting, returns true if the user
+     * has requested a reduced data usage mode from the user agent,
+     * and false otherwise.
+     *
+     * It was deprectaed in favor of saveData.
+     *
+     * https://www.w3.org/TR/2012/WD-netinfo-api-20121129/#attributes-1
+     *
+     * Supported in:
+     *   - Firefox (Desktop) 12+ (non-standard, deprecated)
+     *   - Firefox Android 12+ (non-standard, deprecated)
+     */
+    if (conn.metered) {
+        if (metered !== conn.metered) {
+            text("Connection metered mode changed from " + metered + " to " + conn.metered);
+            metered = conn.metered;
+        } else {
+            text("Connection metered mode: " + metered);
+        }
+    }
+
+    // 4. Let new-downlink be the result of:
+
+    /**
+     * The downlink attribute represents the effective bandwidth
+     * estimate in megabits per second.
+     *
+     * http://wicg.github.io/netinfo/#-dfn-downlink-dfn-attribute
+     *
+     * Supported in:
+     *   - Chrome (Desktop) 63+
+     *   - Chrome for Android 64+
+     *   - Microsoft Edge for Android 1+
+     *   - Opera (Desktop) 48+
+     */
+    if (conn.downlink) {
+        if (downlink !== conn.downlink) {
+            text("Connection downlink changed from " + downlink + " Mbps to " + conn.downlink + " Mbps");
+            downlink = conn.downlink;
+        } else {
+            text("Connection downlink: " + downlink + " Mbps");
+        }
+    }
+
+    /**
+     * The bandwidth attribute represents the effective bandwidth
+     * estimate in megabits per second, 0 if the user is currently offline or
+     * Infinity if the bandwidth is unknown.
+     *
+     * It was deprectaed in favor of downlink.
+     *
+     * https://www.w3.org/TR/2012/WD-netinfo-api-20121129/#attributes-1
+     *
+     * Supported in:
+     *   - Firefox (Desktop) 12+ (non-standard, deprecated)
+     *   - Firefox Android 12+ (non-standard, deprecated)
+     */
+    if (conn.bandwidth) {
+        if (bandwidth !== conn.bandwidth) {
+            text("Connection bandwidth changed from " + bandwidth + " Mbps to " + conn.bandwidth + " Mbps");
+            bandwidth = conn.bandwidth;
+        } else {
+            text("Connection bandwidth: " + bandwidth + " Mbps");
+        }
+    }
+
+    // 5. Let new-rtt be the result of:
+
+    /**
+     * The rtt attribute represents the effective round-trip time estimate in milliseconds.
+     *
+     * http://wicg.github.io/netinfo/#-dfn-rtt-dfn-attribute
+     *
+     * Supported in:
+     *   - Chrome (Desktop) 63+
+     *   - Chrome for Android 64+
+     *   - Microsoft Edge for Android 1+
+     *   - Opera (Desktop) 48+
+     */
+    if (conn.rtt) {
+        if (rtt !== conn.rtt) {
+            text("Connection effective round-trip time changed from " + rtt + " ms to " + conn.rtt + " ms");
+            rtt = conn.rtt;
+        } else {
+            text("Connection effective round-trip time: " + rtt + " ms");
+        }
+    }
+
+    /**
+     * The downloadMax attribute represents an upper bound on the
+     * downlink speed of the first network hop in megabits per second.
+     *
+     * http://wicg.github.io/netinfo/#-dfn-downlinkmax-dfn-attribute
+     *
+     * Supported in:
+     *   * Chrome for Android 64+
+     *   - Opera Mobile 37+
+     *   * Samsung Internet 5+
+     */
+    if (conn.downloadMax) {
+        if (downloadMax !== conn.downloadMax) {
+            text("Connection downloadMax changed from " + downloadMax + " Mbps to " + conn.downloadMax + " Mbps");
+            downloadMax = conn.downloadMax;
+        } else {
+            text("Connection downloadMax: " + downloadMax + " Mbps");
+        }
+    }
 }
 
-async function writeFile() {
-  if (!window.chooseFileSystemEntries) {
-    alert('Native File System API not supported');
-    return;
-  }
-  
-  const target = document.getElementById('target');
-  target.innerHTML = 'Opening file handle';
-  
-  const handle = await window.chooseFileSystemEntries({
-    type: 'save-file',
-  });
-  
-  const file = await handle.getFile()
-  const writer = await handle.createWriter();
-  await writer.write(0, 'Hello world from What Web Can Do!');
-  await writer.close()
-  
-  target.innerHTML = 'Test content written to ' + file.name + '';
+if (connection) {
+    text("Network Information API supported.");
+    text("Client: " + navigator.userAgent);
+    onConnectionChangeHandler(connection);
+
+    function onConnectionChanged(event) {
+        text("+++ Connection attributes changed.");
+        onConnectionChangeHandler(connection);
+    }
+    connection.addEventListener('change', onConnectionChanged, false);
+
+    if (connection.type) {
+        function onConnectionTypeChanged(event) {
+            text("+++ Connection type changed.");
+            onConnectionChangeHandler(connection);
+        }
+        connection.addEventListener('typechange', onConnectionTypeChanged, false);
+    }
+} else {
+    text("Network Information API unsupported.");
+    text("Client: " + navigator.userAgent);
+}
 </script>
